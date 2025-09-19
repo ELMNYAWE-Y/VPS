@@ -1,21 +1,10 @@
-name: VPS Deployment
+name: VPS
 on:
   workflow_dispatch:
-    inputs:
-      timeout_minutes:
-        description: 'Timeout in minutes (max 360)'
-        required: false
-        default: '360'
-      hostname_prefix:
-        description: 'VPS hostname prefix'
-        required: false
-        default: 'ELMINYAWE'
-
 jobs:
   secure-vps:
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ github.event.inputs.timeout_minutes }}
-    
+    timeout-minutes: 360
     steps:
       - name: Install & Configure SSH
         run: |
@@ -23,80 +12,45 @@ jobs:
           sudo apt install -y openssh-server
           sudo systemctl enable ssh
           sudo systemctl start ssh
-          echo "root:Myyaa1212" | sudo chpasswd
+          echo "root:admin@123" | sudo chpasswd
           echo "PermitRootLogin yes" | sudo tee -a /etc/ssh/sshd_config
-          sudo service ssh restart
-          echo "✅ SSH user: root | pass: Myyaa1212"
+          
+          # تغيير اسم الخادم
+          sudo hostnamectl set-hostname ELMINYAWE
+          echo "127.0.0.1 ELMINYAWE" | sudo tee -a /etc/hosts
 
-      - name: Install Tailscale
-        run: |
-          curl -fsSL https://tailscale.com/install.sh | sh
-          sudo tailscale up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=${{ github.event.inputs.hostname_prefix }}-${{ github.run_id }}
-          tsIP=$(tailscale ip -4 | head -n 1)
-          echo "TAILSCALE_IP=$tsIP" >> $GITHUB_ENV
-          echo "✅ Tailscale IP: $tsIP"
-
-      - name: Install useful utilities
-        run: |
-          sudo apt install -y \
-            curl wget git \
-            htop nano vim \
-            net-tools
-
-      - name: Create custom MOTD with ASCII art
-        run: |
-          # إنشاء ملف MOTD برسم ASCII
-          sudo bash -c 'cat > /etc/motd << EOF
+          # إضافة شعار ASCII إلى ملف الترحيب
+          sudo tee /etc/motd > /dev/null << EOF
           ███████╗██╗     ███╗   ███╗██╗███╗   ██╗██╗   ██╗ █████╗ ██╗    ██╗███████╗
           ██╔════╝██║     ████╗ ████║██║████╗  ██║╚██╗ ██╔╝██╔══██╗██║    ██║██╔════╝
           █████╗  ██║     ██╔████╔██║██║██╔██╗ ██║ ╚████╔╝ ███████║██║ █╗ ██║█████╗  
           ██╔══╝  ██║     ██║╚██╔╝██║██║██║╚██╗██║  ╚██╔╝  ██╔══██║██║███╗██║██╔══╝  
           ███████╗███████╗██║ ╚═╝ ██║██║██║ ╚████║   ██║   ██║  ██║╚███╔███╔╝███████╗
           ╚══════╝╚══════╝╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝   ╚═╝   ╚═╝  ╚═╝ ╚══╝╚══╝ ╚══════╝
-                                                                           
-          
-          Welcome to ELMINYAWE VPS!
-          Hostname: ${{ github.event.inputs.hostname_prefix }}-${{ github.run_id }}
-          Tailscale IP: $TAILSCALE_IP
-          EOF'
+          EOF
 
-      - name: Display connection information
-        run: |
-          echo "=============================================="
-          echo "🚀 VPS DEPLOYMENT COMPLETE"
-          echo "=============================================="
-          echo "Tailscale IP: $TAILSCALE_IP"
-          echo "SSH User: root"
-          echo "SSH Password: Myyaa1212"
-          echo "Hostname: ${{ github.event.inputs.hostname_prefix }}-${{ github.run_id }}"
-          echo "Timeout: ${{ github.event.inputs.timeout_minutes }} minutes"
-          echo "=============================================="
-          echo "To connect: ssh root@$TAILSCALE_IP"
-          echo "=============================================="
+          sudo service ssh restart
+          echo "✅ SSH user: root | pass: admin@123 | Hostname: ELMINYAWE"
 
-      - name: Keep VPS Alive with status updates
+      - name: Install Tailscale
         run: |
-          # Function to display basic status
-          show_status() {
-            echo "[$(date)] VPS Status:"
-            echo "- Uptime: $(uptime -p)"
-            echo "- Disk: $(df -h / | awk 'NR==2{print $4}') free"
-            echo "- Memory: $(free -h | awk '/Mem:/{print $4}') free"
-          }
-          
-          # Initial status
-          show_status
-          
-          # Keep alive with periodic status updates
-          counter=0
+          curl -fsSL https://tailscale.com/install.sh | sh
+          sudo tailscale up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=elminyawe-vps-${{ github.run_id }}
+          tsIP=$(tailscale ip -4 | head -n 1)
+          echo "TAILSCALE_IP=$tsIP" >> $GITHUB_ENV
+          echo "✅ Tailscale IP: $tsIP"
+
+      - name: Verify SSH Access
+        run: |
+          echo "Tailscale VPS ready!"
+          echo "IP: $TAILSCALE_IP"
+          echo "User: root"
+          echo "Pass: admin@123"
+          echo "Hostname: ELMINYAWE"
+
+      - name: Keep VPS Alive
+        run: |
           while true; do
+            echo "[$(date)] VPS running..."
             sleep 300
-            counter=$((counter+1))
-            
-            # Show detailed status every 30 minutes
-            if [ $((counter % 6)) -eq 0 ]; then
-              show_status
-            else
-              echo "[$(date)] VPS running... (up for $(date -d "@$((counter * 300))" -u +%H:%M:%S))"
-            fi
           done
